@@ -16,6 +16,14 @@ const util = require('./lib/util');
 const ran = require('./lib/random');
 const hshg = require('./lib/hshg');
 
+let ec = 0
+let sc = 0
+let tc = 0
+let pc = 0
+let hc = 0
+let bpc = 0
+let hpc = 0
+
 // Let's get a cheaper array removal thing
 Array.prototype.remove = index => {
     if(index === this.length - 1){
@@ -964,7 +972,7 @@ class Skill {
                 this.deduction += this.levelScore;
                 this.level += 1;
                 this.points += this.levelPoints;
-                if (this.level == c.TIER_0 || this.level == c.TIER_1 || this.level == c.TIER_2 || this.level == c.TIER_3 || this.level == c.TIER_4) {
+                if (this.level == c.TIER_1 || this.level == c.TIER_2 || this.level == c.TIER_3) {
                     this.canUpgrade = true;
                 }
                 this.update();
@@ -1053,7 +1061,6 @@ const lazyRealSizes = (() => {
 // Define how guns work
 class Gun {
     constructor(body, info) {
-        this.color=16;
         this.lastShot = {
             time: 0,
             power: 0,
@@ -1108,8 +1115,6 @@ class Gun {
                 false : info.PROPERTIES.AUTOFIRE;
             this.altFire = (info.PROPERTIES.ALT_FIRE == null) ?
                 false : info.PROPERTIES.ALT_FIRE;
-            this.randomAmmo = info.PROPERTIES.RANDOM_AMMO == null ? 
-                false : info.PROPERTIES.RANDOM_AMMO;
             this.settings = (info.PROPERTIES.SHOOT_SETTINGS == null) ?
                 [] : info.PROPERTIES.SHOOT_SETTINGS;
             this.calculator = (info.PROPERTIES.STAT_CALCULATOR == null) ?
@@ -1126,11 +1131,6 @@ class Gun {
                 false : info.PROPERTIES.SYNCS_SKILLS;
             this.negRecoil = (info.PROPERTIES.NEGATIVE_RECOIL == null) ?
                 false : info.PROPERTIES.NEGATIVE_RECOIL;
-            this.shootOnDeath = (info.PROPERTIES.SHOOT_ON_DEATH == null) ?
-                false : info.PROPERTIES.SHOOT_ON_DEATH;
-            if (info.PROPERTIES.COLOR!=null&&info.PROPERTIES!=null){
-        this.color=info.PROPERTIES.COLOR
-      }
         }                    
         let position = info.POSITION;
         this.length = position[0] / 10;
@@ -1302,13 +1302,7 @@ class Gun {
 
     bulletInit(o) {
         // Define it by its natural properties
-        if (this.randomAmmo) {
-  o.define(ran.choose(this.bulletTypes));
-} else {
-  this.bulletTypes.forEach(type => {
-    o.define(type);
-  }); 
-}
+        this.bulletTypes.forEach(type => o.define(type));
         // Pass the gun attributes
         o.define({ 
             BODY: this.interpret(), 
@@ -1465,15 +1459,10 @@ var bringToLife = (() => {
         }
         // Invisibility
         if (my.invisible[1]) {
-          if(my.invisible[2] <= my.alpha){  
-          my.alpha = Math.max(0.01, my.alpha - my.invisible[1]);
-          }
-                  if (!(my.velocity.x * my.velocity.x + my.velocity.y * my.velocity.y < 0.15 * 0.15) || my.damageRecieved)
-                        my.alpha = Math.min(1, my.alpha + my.invisible[0]);
-            } else my.alpha = 1;
- if(my.invisible[0] == 2){
-        my.alpha = my.invisible[2]
-      }
+          my.alpha = Math.max(0, my.alpha - my.invisible[1])
+          if (!my.velocity.isShorterThan(0.1) || my.damageReceived)
+            my.alpha = Math.min(1, my.alpha + my.invisible[0])
+        }
         // So we start with my master's thoughts and then we filter them down through our control stack
         my.controllers.forEach(AI => {
             let a = AI.think(b);
@@ -1648,7 +1637,7 @@ class Entity {
         this.collisionArray = [];
         this.invuln = false;
         this.alpha = 1;
-        this.invisible = [0, 0, 0];
+        this.invisible = [0, 0];
         // Get a new unique id
         this.id = entitiesIdLog++;
         this.team = this.id;
@@ -1692,16 +1681,6 @@ class Entity {
         this.updateAABB(true);   
         entities.push(this); // everything else
         views.forEach(v => v.add(this));
-        //poison and freeze definers
-    		this.ContactPoison = false;
-    		this.ContactFreeze = false;
-    		this.PoisonEffectiveness = {HP:5, HPP:0, SH:5, SHP:0, Time:3, AddTime:0, ExpDam:0, Interval: 1000};
-    		this.FreezeEffectiveness = {SlowMulti:0.5, Time:3, AddTime:0};
-    		this.PoisonImmunity = 1;
-    		this.FreezeImmunity = 1;
-    		this.Poisoned = {IsPoisoned:false};
-    		this.Frozen = {IsFrozen:false, SlowMulti: 1};
-
     }
     
     life() { bringToLife(this); }
@@ -1729,12 +1708,6 @@ class Entity {
         if (set.LABEL != null) { 
             this.label = set.LABEL; 
         }
-        if (set.LABELSWITCH != null) {
-        	this.labelswitch = set.LABELSWITCH;
-    	  }else {
-      	this.labelswitch = null;
-        }
-
         if (set.TYPE != null) { 
             this.type = set.TYPE; 
         }
@@ -1848,25 +1821,6 @@ class Entity {
         if (set.ALPHA != null) { 
             this.alpha = set.ALPHA;
         }
-        if (set.POISON != null) {
-        	this.ContactPoison = set.POISON;
-      	}
-      	if (set.FREEZE != null) {
-          	this.ContactFreeze = set.FREEZE;
-      	}
-    	if (set.POISONEFFECTIVENESS != null) {
-        	this.PoisonEffectiveness = set.POISONEFFECTIVENESS;
-    	}
-  	if (set.FREEZEEFFECTIVENESS != null) {
-        	this.FreezeEffectiveness = set.FREEZEEFFECTIVENESS;
-    	}
-  	if (set.POISONIMMUNITY != null) {
-        	this.PoisonImmunity = set.POISONIMMUNITY;
-    	}
-  	if (set.FREEZEIMMUNITY != null) {
-        	this.FreezeImmunity = set.FREEZEIMMUNITY;
-    	}
-
         if (set.INVISIBLE != null) { 
             this.invisible = set.INVISIBLE;
         }
@@ -1879,11 +1833,6 @@ class Entity {
         }
         if (set.RESET_UPGRADES) {
             this.upgrades = [];
-        }
-        if (set.UPGRADES_TIER_0 != null) { 
-            set.UPGRADES_TIER_0.forEach((e) => {
-                this.upgrades.push({ class: e, tier: 1, level: c.TIER_0, index: e.index });
-            });
         }
         if (set.UPGRADES_TIER_1 != null) { 
             set.UPGRADES_TIER_1.forEach((e) => {
@@ -1898,11 +1847,6 @@ class Entity {
         if (set.UPGRADES_TIER_3 != null) { 
             set.UPGRADES_TIER_3.forEach((e) => {
                 this.upgrades.push({ class: e, tier: 3, level: c.TIER_3, index: e.index });
-            });
-        }
-        if (set.UPGRADES_TIER_4 != null) { 
-            set.UPGRADES_TIER_4.forEach((e) => {
-                this.upgrades.push({ class: e, tier: 4, level: c.TIER_4, index: e.index });
             });
         }
         if (set.SIZE != null) {
@@ -2143,33 +2087,21 @@ class Entity {
     }
 
     upgrade(number) {
-    	if (number < this.upgrades.length && this.skill.level >= this.upgrades[number].level) {	 
-        	let saveMe = this.upgrades[number].class;      	 
-        	this.upgrades = [];
-        	this.define(saveMe);
-        	this.sendMessage('You have upgraded to ' + this.label + '.');
-        	if (this.labelswitch != null){
-                	this.sendMessage('Press Shift to switch class');
-                 	};
-        	let ID = this.id;
-        	entities.forEach(instance => {
-            	if (instance.settings.clearOnMasterUpgrade && instance.master.id === ID) {
-                	instance.kill();
-            	}
-        	});
-        	this.skill.update();
-        	this.refreshBodyAttributes();
-    	}
-	}
-
-  resetWeapons()  {
-  let ID = this.id;
-        	entities.forEach(instance => {
-            	if (instance.settings.clearOnMasterUpgrade && instance.master.id === ID) {
-                	instance.kill();
-            	}
-        	}); }
-
+        if (number < this.upgrades.length && this.skill.level >= this.upgrades[number].level) {     
+            let saveMe = this.upgrades[number].class;           
+            this.upgrades = [];
+            this.define(saveMe);
+            this.sendMessage('You have upgraded to ' + this.label + '.');
+            let ID = this.id;
+            entities.forEach(instance => {
+                if (instance.settings.clearOnMasterUpgrade && instance.master.id === ID) {
+                    instance.kill();
+                }
+            }); 
+            this.skill.update();
+            this.refreshBodyAttributes();
+        }
+    }
 
     damageMultiplier() {
         switch (this.type) {
@@ -2194,15 +2126,6 @@ class Entity {
         case 'glide':
             this.maxSpeed = this.topSpeed;
             this.damp = 0.05;
-            break;
-        case "grow":
-            this.SIZE += 4;
-            break;
-        case "grow2":
-            this.SIZE += 10;
-            break;
-        case "shrink":
-            this.SIZE -= 10;
             break;
         case 'motor':
             this.maxSpeed = 0;            
@@ -2346,17 +2269,11 @@ class Entity {
         // Reset acceleration
         nullVector(this.accel); 
         // Apply motion
-        let slowdown = 1
-
-  	if(this.Frozen.IsFrozen != false){
-  	slowdown = this.Frozen.SlowMulti*this.FreezeImmunity;
-  	};
-       	 
-    	this.stepRemaining = 1;
-    	this.x += this.stepRemaining * this.velocity.x * slowdown / roomSpeed;
-    	this.y += this.stepRemaining * this.velocity.y * slowdown / roomSpeed;
-
+        this.stepRemaining = 1;
+        this.x += this.stepRemaining * this.velocity.x / roomSpeed;
+        this.y += this.stepRemaining * this.velocity.y / roomSpeed;        
     }
+
     friction() {
         var motion = this.velocity.length,
             excess = motion - this.maxSpeed;
@@ -2430,37 +2347,14 @@ class Entity {
 
         // Check for death
         if (this.isDead()) {
-          //Shoot on death
-      this.guns.forEach(gun => {
-      if (gun.shootOnDeath) {
-        // get Skills
-        let sk =
-          gun.bulletStats === "master" ? gun.body.skill : gun.bulletStats;
-        // Find the end of the gun
-        if (gun.body != null) {
-          let gx =
-            gun.offset *
-              Math.cos(gun.direction + gun.angle + gun.body.facing) +
-            (1.5 * gun.length - (gun.width * gun.settings.size) / 2) *
-              Math.cos(gun.angle + gun.body.facing);
-          let gy =
-            gun.offset *
-              Math.sin(gun.direction + gun.angle + gun.body.facing) +
-            (1.5 * gun.length - (gun.width * gun.settings.size) / 2) *
-              Math.sin(gun.angle + gun.body.facing);
-        // FIRE!
-        gun.fire(gx, gy, sk);
-        }
-      } 
-      })
             // Initalize message arrays
             let killers = [], killTools = [], notJustFood = false;
             // If I'm a tank, call me a nameless player
             let name = (this.master.name == '') ?
                 (this.master.type === 'tank') ?
                     "a nameless player's " + this.label :
-                    (this.type === 'miniboss') ?
-                        "a " + this.label :
+                    (this.master.type === 'miniboss') ?
+                        "a visiting " + this.label :
                         util.addArticle(this.label) 
                 :
                 this.master.name + "'s " + this.label;
@@ -2487,7 +2381,7 @@ class Entity {
                 this.killCount.killers.push(instance.index);
                 if (this.type === 'tank') {
                     if (killers.length > 1) instance.killCount.assists++; else instance.killCount.solo++;
-                } else if (this.type === "miniboss") instance.killCount.bosses++;
+                } else if (this.type === "miniboss") instance.killCount.bosses++;else if (this.type === "egg") ec++;else if (this.type === "square") sc++;else if (this.type === "tri") tc++;else if (this.type === "penta") pc++;else if (this.type === "big") bpc++;else if (this.type === "huge") hpc++;
             });
             // Add the killers to our death message, also send them a message
             if (notJustFood) {
@@ -2497,10 +2391,9 @@ class Entity {
                         killText += ' and ';
                     }
                     // Only if we give messages
-                    if (dothISendAText && this.type !== 'miniboss') { 
+                    if (dothISendAText) { 
                         instance.sendMessage('You killed ' + name + ((killers.length > 1) ? ' (with some help).' : '.')); 
                     }
-                    
                 });
                 // Prepare the next part of the next 
                 killText = killText.slice(0, -4);
@@ -2687,7 +2580,6 @@ var http = require('http'),
                         width: rounder(gun.width),
                         aspect: rounder(gun.aspect),
                         angle: rounder(gun.angle),
-                        color: rounder(gun.color),
                     };
                 }),
                 turrets: e.turrets.map(function(t) { 
@@ -2973,7 +2865,7 @@ const sockets = (() => {
                     if (socket.status.verified) { socket.kick('Duplicate player spawn attempt.'); return 1; }
                     socket.talk('w', true)
                     if (m.length === 1) {
-                        let key = process.env.SECRET;
+                        let key = m[0];
                         socket.key = key;
                         util.log('[INFO] A socket was verified with the token: '); util.log(key);
                     }
@@ -3163,196 +3055,13 @@ const sockets = (() => {
                 case '0': { // testbed cheat
                     if (m.length !== 0) { socket.kick('Ill-sized testbed request.'); return 1; }
                     // cheatingbois
-                    if (player.body != null) { if (socket.key == process.env.SECRET) {
+                    if (player.body != null) { if (socket.key === process.env.SECRET) {
                         player.body.define(Class.testbed);
                     } }
                 } break;
-                  case 'K': { // testbed cheat
-                    if (player.body != null){
-                      player.body.kill()
-                    }
-                } break;
-                  case 'P': { // testbed cheat
-                    if (player.body != null){
-                      player.body.define({SIZE:100})
-                      player.body.sendMessage('Made your tank big.')
-                    }
-                } break;
-                  case 'I': { // testbed cheat
-                    if (player.body != null){
-                      player.body.define({SIZE:1})
-                      player.body.sendMessage('Made your tank small')
-                    }
-                } break;
-                  case 'R': { // testbed cheat
-                    if (player.body != null){
-                      player.body.define({SIZE:1000})
-                      player.body.sendMessage('Turned your tank into a Chungus')
-                    }
-                } break;
-                  case 'J': { // testbed cheat
-                    if (player.body != null && player.body.name.includes('ﾠYeetus') || player.body.name.includes('ﾠ#')){
-                      player.body.define({COLOR:36})
-                      player.body.sendMessage('Rainbowed')
-                    }
-                } break;
-                    case 'GOD': { // testbed cheat
-                    if (player.body != null){
-                      let loc = { x: player.body.x + 100, y: player.body.y, };
-                      let a = new Entity(loc);
-                        a.master = player.body
-                        a.protect();
-                        a.define(Class.bot); // Start as a basic tank
-                        a.define(Class.zeus); // Start as a basic tank
-                        a.name = player.body.name + '\'s Bot'; // Define the name
-                        a.addController(new io_listenToPlayer(a, player)); // Make it listen
-                        a.define({VALUE:60000})
-                    }
-                } break;
-                    case 'BOSS': { // testbed cheat
-                    if (player.body != null){
-                      let loc1 = { x: player.body.x + 50, y: player.body.y, };
-                      let loc2 = { x: player.body.x - 50, y: player.body.y, };
-                      let loc3 = { x: player.body.x, y: player.body.y+50 };
-                      let a = new Entity(loc1);
-                        a.define(Class.pulsar); // Start as a basic tank
-                        a.name = player.body.name + '\'s Boss'; // Define the name
-                      let b = new Entity(loc1);
-                        b.define(Class.collider); // Start as a basic tank
-                        b.name = player.body.name + '\'s Boss'; // Define the name
-                      let c = new Entity(loc1);
-                        c.define(Class.t3crasher); // Start as a basic tank
-                        c.name = player.body.name + '\'s Boss'; // Define the name
-                    }
-                } break;
-                  function classChange(){
-    switch (player.body.labelswitch) {
-    case 'SMa15':
-      player.body.define(Class.switcherooFL0)
-    break;
-    case 'SBa15':
-      player.body.define(Class.switcherooTW0)
-    break;
-    case 'STw15':
-      player.body.define(Class.switcherooSN0)
-    break;
-    case 'SSn15':
-      player.body.define(Class.switcherooMA0)
-    break;
-    case 'SFl15':
-      player.body.define(Class.switcherooDI0)
-    break;
-    case 'SDi15':
-      player.body.define(Class.switcherooLA0)
-    break;
-    case 'SLa15':
-      player.body.define(Class.switcherooAU0)
-    break;
-    case 'SAu15':
-      player.body.define(Class.switcherooBA0)
-    break;
-    }
-  };
- 
-                   function MakeAnimations(trueLabel, totalFrames, definition, speed, switcheroo){
-  // all the boring behind the scenes stuff that takes the number of the frame and then converts it over a period of time to another tank,
-  //You probably don't care and will probably never need to edit this.
-  if(switcheroo == true ){
-  classChange()
-  }
-            if (player.body.labelswitch == trueLabel + '0')  {
-                        animation = true
-                for (let i=0; i<=totalFrames; i++){
-                                   if (player.body != null) {
-        setTimeout(() => {
-        player.body.define(Class[definition + (i + (i==0))]);
-        }, speed * i);} }
-                               if (player.body != null) {
-          player.body.define(Class[definition + totalFrames])  
-                               }
-                      }else{
-            if (switcheroo != true){
-              if (player.body.labelswitch == trueLabel + totalFrames)  {
-                animation = true
-              for (let i=0; i<=totalFrames; i++){
-                if (player.body != null) {
-        setTimeout(() => {
-        player.body.define(Class[definition + (totalFrames - (i + (i==0)))]);
-        }, speed * i);} }
-                if (player.body != null) {
-          player.body.define(Class[definition + '0'])}
-              }
-              }
-          }
-                    };
-                  case "ChangeTankOne":
-            {
- if (player.body != null) {
-              var animation = false
- 
-                
- 
-              //switcheroo code:
-             classChange()
- 
-              switch (player.body.labelswitch) {
-    case 'SMa0':
-      MakeAnimations('SMa', 15, 'switcherooMA', 50, true)
-    break;
-    case 'SBa0':
-      MakeAnimations('SBa', 15, 'switcherooBA', 50, true)
-    break;
-    case 'STw0':
-      MakeAnimations('STw', 15, 'switcherooTW', 50, true)
-    break;
-    case 'SSn0':
-      MakeAnimations('SSn', 15, 'switcherooSN', 50, true)
-    break;
-    case 'SFl0':
-      MakeAnimations('SFl', 15, 'switcherooFL', 50, true)
-    break;
-    case 'SDi0':
-      MakeAnimations('SDi', 15, 'switcherooDI', 50, true)
-    break;
-    case 'SLa0':
-      MakeAnimations('SLa', 15, 'switcherooLA', 50, true)
-    break;
-    case 'SAu0':
-      MakeAnimations('SAu', 15, 'switcherooAU', 50, true)
-    break;
-    case 'Ac0':
-      MakeAnimations('Ac', 15, 'akafugi', 100)
-    break;
-    case 'Ac15':
-      MakeAnimations('Ac', 15, 'akafugi', 100)
-    break;
-    case 'T0':
-                  MakeAnimations('T', 15, 'torturer',50)
-                  break;
-                case 'T15':
-                  MakeAnimations('T', 15, 'torturer',50)
-                  break;
-                case 'P0':
-                  MakeAnimations('P', 120, 'preeze', 10)
-                  break;
-                case 'P120':
-                  MakeAnimations('P', 120, 'preeze', 10)
-                  break;
-  };
- 
- 
-              //end of it
-              if(animation == true){
-              player.body.resetWeapons();
-              }
-              player.body.refreshBodyAttributes();
-                }
-				}
-                    break;
-
+                default: socket.kick('Bad packet index.');
                 }
             }
-          
             // Monitor traffic and handle inactivity disconnects
             function traffic(socket) {
                 let strikes = 0;
@@ -3615,31 +3324,16 @@ const sockets = (() => {
                         body.protect();
                         body.define(Class.basic); // Start as a basic tank
                         body.name = name; // Define the name
-                        if (body.name.includes('ﾠYeetus')){
-                          body.name = "[Developer]" + name
-                          sockets.broadcast(body.name + ' has joined the game!')
-                          body.define({ COLOR:36, })
-                        }else if (body.name === 'ﾠ#sunnYEET'){
-                          body.name = "[Co-Developer]" + name
-                          sockets.broadcast(body.name + ' has joined the game!')
-                          body.define({ COLOR:36, })
-                        }else if (body.name.includes('JEff')){
-                          body.name = "[Beta-tester]ﾠ" + name
-                          
-                        }
-                        let minutes = 60
-                        let seconds = 0
                         // Dev hax
                         if (socket.key === 'testl' || socket.key === 'testk') {
                             body.name = "\u200b" + body.name;
                             body.define({ CAN_BE_ON_LEADERBOARD: false, });
-                        }          
-                        
+                        }                        
                         body.addController(new io_listenToPlayer(body, player)); // Make it listen
                         body.sendMessage = content => messenger(socket, content); // Make it speak
                         body.invuln = true; // Make it safe
-                        player.body = body;
-                                            // Decide how to color and team the body
+                    player.body = body;
+                    // Decide how to color and team the body
                     switch (room.gameMode) {
                         case "tdm": {
                             body.team = -player.team;
@@ -3695,7 +3389,8 @@ const sockets = (() => {
                     socket.camera.x = body.x; socket.camera.y = body.y; socket.camera.fov = 2000;
                     // Mark it as spawned
                     socket.status.hasSpawned = true;
-                    body.sendMessage('Hopefully you can survive against the developers!')
+                    body.sendMessage('You have spawned! Welcome to the game.');
+                    body.sendMessage('You will be invulnerable until you move or shoot.');
                     // Move the client camera
                     socket.talk('c', socket.camera.x, socket.camera.y, socket.camera.fov);
                     return player;
@@ -4641,25 +4336,6 @@ var gameloop = (() => {
                             n.damageRecieved += damage._me * deathFactor._me;
                         }
                     }
-                  /*  POISON & FREEZE COLLISIONS  */
-                  	if (n.ContactPoison && my.Poisoned.IsPoisoned == false) {
-                    	my.Poisoned = n.PoisonEffectiveness;
-                    	my.Poisoned.IsPoisoned = true;
-                  	};
-                  	if (my.ContactPoison && n.Poisoned.IsPoisoned == false) {
-                    	n.Poisoned = my.PoisonEffectiveness;
-                    	n.Poisoned.IsPoisoned = true;
-                  	};
-                  	if (n.ContactFreeze && my.Frozen.IsFrozen == false) {
-                    	my.Frozen = n.FreezeEffectiveness;
-                    	my.Frozen.IsFrozen = true;
-                  	};
-                  	if (my.ContactFreeze && n.Frozen.IsFrozen == false) {
-                    	n.Frozen = my.FreezeEffectiveness;
-                    	n.Frozen.IsFrozen = true;
-                  	};
-                
-
                     /************* DO MOTION ***********/    
                     if (nIsFirmCollide < 0) {
                         nIsFirmCollide *= -0.5;
@@ -4789,9 +4465,6 @@ var gameloop = (() => {
                 my.life();
                 logs.life.mark();
                 // Apply friction.
-                poison(my);
-                freeze(my);
-
                 my.friction();
                 my.confinementToTheseEarthlyShackles();
                 logs.selfie.set();
@@ -4834,46 +4507,6 @@ var gameloop = (() => {
     //setTimeout(moveloop, 1000 / roomSpeed / 30 - delta); 
 })();
 // A less important loop. Runs at an actual 5Hz regardless of game speed.
-//this is the function that actually poisons you, it needs to be separate so it call call itself and repeat a set amount of times
-function applypoison(element) {
-      if (element.Poisoned.IsPoisoned >= 1){
-    element.blend.amount = 1
-    element.Poisoned.IsPoisoned -= 1
-      let numberOfRotations = 1
-      if(element.Poisoned.ExpDam == 1){
-      numberOfRotations = element.Poisoned.Time*1000/element.Poisoned.Interval
-      }
-      if (!element.invuln) {
-              element.health.amount -= element.PoisonImmunity * ((element.Poisoned.HP / numberOfRotations) + ((element.health.max*element.Poisoned.HPP)/numberOfRotations))
-              element.shield.amount -= element.PoisonImmunity * ((element.Poisoned.SH / numberOfRotations) + ((element.shield.max*element.Poisoned.SHP)/numberOfRotations))
-              }
-            setTimeout(() => {
-        applypoison(element)
-      }, element.Poisoned.Interval);
-    }else{
-      element.Poisoned.IsPoisoned = false
-    }
-  };
-//this runs for every object, testing to see if it is poisoned or if it should display a color effect
-function poison(element){
-    if (element.Poisoned.IsPoisoned === true && element.invuln !== true){
-    element.Poisoned.Time += (Math.random() < 0.5 ? -1 : 1)*(Math.round(Math.random())) * element.Poisoned.AddTime
-    element.Poisoned.IsPoisoned = (element.Poisoned.Time*1000/element.Poisoned.Interval)
-      setTimeout(() => {
-        applypoison(element)
-      }, element.Poisoned.Interval);
-  }
-};
-//the freeze alternative to poison, exxcept all we need to do is make sure it stops after a predetermite amount of time
-function freeze(element){
-    if (element.Frozen.IsFrozen === true && element.invuln !== true){
-    element.Frozen.Time += (Math.random() < 0.5 ? -1 : 1)*(Math.round(Math.random())) * element.Frozen.AddTime
-    element.Frozen.IsFrozen = 2 //2 is just a number to show you are already poisoned, so don't redo it
-      setTimeout(() => {
-       element.Frozen.IsFrozen = false
-      }, element.Frozen.Time*1000);
-  }
-};
 var maintainloop = (() => {
     // Place obstacles
     function placeRoids() {
@@ -4892,7 +4525,7 @@ var maintainloop = (() => {
                 o.life();
         }
         // Start placing them
-        let roidcount = room.roid.length * room.width * room.height * 9/ room.xgrid / room.ygrid / 50000 / 1.5;
+        let roidcount = room.roid.length * room.width * room.height / room.xgrid / room.ygrid / 50000 / 1.5;
         let rockcount = room.rock.length * room.width * room.height / room.xgrid / room.ygrid / 250000 / 1.5;
         let count = 0;
         for (let i=Math.ceil(roidcount); i; i--) { count++; placeRoid('roid', Class.obstacle); }
@@ -4952,29 +4585,17 @@ var maintainloop = (() => {
             };
         })();
         return census => {
-            if (timer > 300 && ran.dice(800 - timer)) {
+            if (timer > 6000 && ran.dice(16000 - timer)) {
                 util.log('[SPAWN] Preparing to spawn...');
                 timer = 0;
                 let choice = [];
-                switch (ran.chooseChance(10, 10, 50, 40,50)) {
+                switch (ran.chooseChance(40, 1)) {
                     case 0: 
-                        choice = [[Class.elite_destroyer], 1, 'a', 'nest'];
+                        choice = [[Class.elite_destroyer], 2, 'a', 'nest'];
                         break;
                     case 1: 
                         choice = [[Class.palisade], 1, 'castle', 'norm']; 
                         sockets.broadcast('A strange trembling...');
-                        break;
-                    case 2: 
-                        choice = [[Class.t3crasher], 1, 'castle', 'nest']; 
-                        sockets.broadcast('You hear boss music...');
-                        break;
-                    case 3: 
-                        choice = [[Class.pulsar], 1, 'castle', 'nest']; 
-                        sockets.broadcast('Thats a weird pentagon!');
-                        break;
-                    case 4: 
-                        choice = [[Class.collider], 1, 'castle', 'nest']; 
-                        sockets.broadcast('Don\'t get distracted...');
                         break;
                 }
                 boss.prepareToSpawn(...choice);
@@ -4983,42 +4604,20 @@ var maintainloop = (() => {
             } else if (!census.miniboss) timer++;
         };
     })();
-        let spawnCrasher = census => {
+    let spawnCrasher = census => {
         if (ran.chance(1 -  0.5 * census.crasher / room.maxFood / room.nestFoodAmount)) {
             let spot, i = 30;
             do { spot = room.randomType('nest'); i--; if (!i) return 0; } while (dirtyCheck(spot, 100));
-var itemCrasher = {
-  'crasher':60,
-  'sentryGun':5,
-  'sentrySwarm':5,
-  'sentryTrap':5,
-  't2crasher':30,
-  'pulsarlite':5,
-  'navigatorlite':5,
-  'colliderlite': 5,
-  
-};
-function get(input) {
-    var crasherarray = []; // Just Checking...
-    for(var itemCrasher in input) {
-        if ( input.hasOwnProperty(itemCrasher) ) { // Safety
-            for( var i=0; i<input[itemCrasher]; i++ ) {
-                crasherarray.push(itemCrasher);
-            }
-        }
-    }
-    return crasherarray[Math.floor(Math.random() * crasherarray.length)];
-}
-            let type = Class[get(itemCrasher)];
+            let type = (ran.dice(80)) ? ran.choose([Class.sentryGun, Class.sentrySwarm, Class.sentryTrap]) : Class.crasher;
             let o = new Entity(spot);
                 o.define(type);
                 o.team = -100;
         }
-    }; 
+    };
     // The NPC function
     let makenpcs = (() => {
-        //Make base protectors if needed.
-            let f = (loc, team) => { 
+        // Make base protectors if needed.
+            /*let f = (loc, team) => { 
                 let o = new Entity(loc);
                     o.define(Class.baseProtector);
                     o.team = -team;
@@ -5026,7 +4625,7 @@ function get(input) {
             };
             for (let i=1; i<5; i++) {
                 room['bas' + i].forEach((loc) => { f(loc, i); }); 
-            }
+            }*/
         // Return the spawning function
         let bots = [];
         return () => {
@@ -5044,13 +4643,12 @@ function get(input) {
             // Spawning
             spawnCrasher(census);
             spawnBosses(census);
-            //Bots
-                let oo = Math.floor(Math.random()*10)
+            /*/ Bots
                 if (bots.length < c.BOTS) {
                     let o = new Entity(room.random());
                     o.color = 17;
                     o.define(Class.bot);
-                    o.define(Class.basic)
+                    o.define(Class.basic);
                     o.name += ran.chooseBotName();
                     o.refreshBodyAttributes();
                     o.color = 17;
@@ -5065,7 +4663,7 @@ function get(input) {
                         o.skill.maintain();
                     }
                 });
-            
+            */
         };
     })();
     // The big food function
@@ -5081,9 +4679,6 @@ function get(input) {
                 case 3: a = Class.pentagon; break;
                 case 4: a = Class.bigPentagon; break;
                 case 5: a = Class.hugePentagon; break;
-                case 6: a = Class.greensquare; break;
-                case 7: a = Class.greentriangle; break;
-                case 8: a = Class.greenpentagon; break;
                 default: throw('bad food level');
             }
             if (a !== {}) {
@@ -5297,7 +4892,6 @@ function get(input) {
         });
     };
 })();
-
 // This is the checking loop. Runs at 1Hz.
 var speedcheckloop = (() => {
     let fails = 0;
@@ -5376,15 +4970,15 @@ let websockets = (() => {
 setInterval(gameloop, room.cycleSpeed);
 setInterval(maintainloop, 200);
 setInterval(speedcheckloop, 1000);
-
-setTimeout(function() {
-      let loops = 0;
-      setTimeout(function() {
-        sockets.broadcast("Closing!");
-        console.log("Arena Closing...");
-        setTimeout(function() {
-          sockets.broadcast('Arena closed.')
-          process.exit();
-        }, 2000);
-      }, 4000);
-    }, 1200000);
+let loc = {x: Math.floor(Math.Random)*1000, y: Math.floor(Math.random)*1000};
+if (ec == 500 || sc == 250 || tc == 100 || pc == 75 || bpc == 20 || hpc == 5){
+  sockets.broadcast("You have reached the requirement for one of the kill counts! Spawning bosses.")
+  let b = new Entity(loc)
+  b.define(Class.elite_destroyer)
+  let a = new Entity(loc)
+  a.define(Class.elite_gunner)
+  let c = new Entity(loc)
+  c.define(Class.elite_sprayer)
+  let d = new Entity(loc)
+  d.define(Class.palisade)
+}
